@@ -1,0 +1,8 @@
+target/
+.idea/
+*.iml
+data/
+*.log
+.worktrees/
+worktrees/
+.superpowers/
