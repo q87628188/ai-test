@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -21,6 +22,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.TransactionCallback;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @ExtendWith(MockitoExtension.class)
 class TaskSubmissionServiceTest {
@@ -29,13 +33,19 @@ class TaskSubmissionServiceTest {
     @Mock BoundedPriorityTaskQueue queue;
     @Mock TaskMetrics metrics;
     @Mock AcceptingGate gate;
+    @Mock TransactionTemplate transactionTemplate;
     AtomicLong seq = new AtomicLong();
     TaskSubmissionService service;
 
     @BeforeEach
     void setUp() {
-        when(gate.isAccepting()).thenReturn(true);
-        service = new TaskSubmissionService(statusRepo, queue, metrics, gate, seq, new ObjectMapper());
+        lenient().when(gate.isAccepting()).thenReturn(true);
+        lenient().when(transactionTemplate.execute(any())).thenAnswer(inv -> {
+            TransactionCallback<?> callback = inv.getArgument(0);
+            return callback.doInTransaction(org.mockito.Mockito.mock(TransactionStatus.class));
+        });
+        service = new TaskSubmissionService(
+            statusRepo, queue, metrics, gate, seq, new ObjectMapper(), transactionTemplate);
     }
 
     @Test

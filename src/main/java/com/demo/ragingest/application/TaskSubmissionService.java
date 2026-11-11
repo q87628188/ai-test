@@ -16,7 +16,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 public class TaskSubmissionService {
@@ -27,6 +27,7 @@ public class TaskSubmissionService {
     private final AcceptingGate gate;
     private final AtomicLong enqueueSequence;
     private final ObjectMapper objectMapper;
+    private final TransactionTemplate transactionTemplate;
 
     public TaskSubmissionService(
         TaskStatusRepository statusRepo,
@@ -34,7 +35,8 @@ public class TaskSubmissionService {
         TaskMetrics metrics,
         AcceptingGate gate,
         AtomicLong enqueueSequence,
-        ObjectMapper objectMapper
+        ObjectMapper objectMapper,
+        TransactionTemplate transactionTemplate
     ) {
         this.statusRepo = statusRepo;
         this.queue = queue;
@@ -42,9 +44,9 @@ public class TaskSubmissionService {
         this.gate = gate;
         this.enqueueSequence = enqueueSequence;
         this.objectMapper = objectMapper;
+        this.transactionTemplate = transactionTemplate;
     }
 
-    @Transactional
     public SubmitResult submit(SubmitCommand cmd) {
         if (!gate.isAccepting()) {
             throw new NotAcceptingException("task engine is not accepting new submissions");
@@ -59,6 +61,13 @@ public class TaskSubmissionService {
             throw new QueueFullException("in-memory queue is full");
         }
 
+        TaskStatusEntity entity = transactionTemplate.execute(status -> persistNew(cmd));
+        long seq = enqueueSequence.incrementAndGet();
+        boolean admitted = queue.offer(new QueuedTask(entity.getId(), entity.getPriority(), seq));
+        return new SubmitResult(entity.getId(), admitted, false);
+    }
+
+    private TaskStatusEntity persistNew(SubmitCommand cmd) {
         TaskStatusEntity entity = new TaskStatusEntity();
         entity.setId(UUID.randomUUID().toString());
         entity.setBusinessKey(cmd.businessKey());
@@ -68,11 +77,7 @@ public class TaskSubmissionService {
         entity.setRetryCount(0);
         entity.setPayloadJson(toPayloadJson(cmd));
         entity.setEnqueuedAt(Instant.now());
-        statusRepo.save(entity);
-
-        long seq = enqueueSequence.incrementAndGet();
-        boolean admitted = queue.offer(new QueuedTask(entity.getId(), entity.getPriority(), seq));
-        return new SubmitResult(entity.getId(), admitted, false);
+        return statusRepo.save(entity);
     }
 
     private String toPayloadJson(SubmitCommand cmd) {
