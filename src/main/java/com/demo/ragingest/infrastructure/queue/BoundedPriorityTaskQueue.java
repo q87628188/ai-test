@@ -4,14 +4,12 @@ import com.demo.ragingest.domain.QueuedTask;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.concurrent.PriorityBlockingQueue;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.PriorityQueue;
 
 public final class BoundedPriorityTaskQueue {
     private final int capacity;
-    private final AtomicInteger size = new AtomicInteger(0);
-    private final PriorityBlockingQueue<QueuedTask> queue = new PriorityBlockingQueue<>(
-        11,
+    private int size = 0;
+    private final PriorityQueue<QueuedTask> queue = new PriorityQueue<>(
         Comparator.comparingInt(QueuedTask::priority).reversed()
             .thenComparingLong(QueuedTask::enqueueSeq)
     );
@@ -21,29 +19,27 @@ public final class BoundedPriorityTaskQueue {
         this.capacity = capacity;
     }
 
-    public boolean offer(QueuedTask task) {
-        while (true) {
-            int current = size.get();
-            if (current >= capacity) return false;
-            if (!size.compareAndSet(current, current + 1)) continue;
-            if (!queue.offer(task)) {
-                size.decrementAndGet();
-                return false;
-            }
-            return true;
-        }
+    public synchronized boolean offer(QueuedTask task) {
+        if (size >= capacity) return false;
+        if (!queue.offer(task)) return false;
+        size++;
+        notifyAll();
+        return true;
     }
 
-    public QueuedTask take() throws InterruptedException {
-        QueuedTask task = queue.take();
-        size.decrementAndGet();
+    public synchronized QueuedTask take() throws InterruptedException {
+        while (queue.isEmpty()) {
+            wait();
+        }
+        QueuedTask task = queue.poll();
+        size--;
         return task;
     }
 
-    public boolean remove(String taskId) {
+    public synchronized boolean remove(String taskId) {
         for (QueuedTask candidate : queue) {
             if (candidate.taskId().equals(taskId) && queue.remove(candidate)) {
-                size.decrementAndGet();
+                size--;
                 return true;
             }
         }
@@ -51,13 +47,13 @@ public final class BoundedPriorityTaskQueue {
     }
 
     public synchronized List<QueuedTask> drainAll() {
-        List<QueuedTask> drained = new ArrayList<>();
-        queue.drainTo(drained);
-        size.set(0);
+        List<QueuedTask> drained = new ArrayList<>(queue);
+        queue.clear();
+        size = 0;
         return drained;
     }
 
-    public boolean contains(String taskId) {
+    public synchronized boolean contains(String taskId) {
         for (QueuedTask candidate : queue) {
             if (candidate.taskId().equals(taskId)) {
                 return true;
@@ -66,6 +62,6 @@ public final class BoundedPriorityTaskQueue {
         return false;
     }
 
-    public int size() { return size.get(); }
+    public synchronized int size() { return size; }
     public int capacity() { return capacity; }
 }

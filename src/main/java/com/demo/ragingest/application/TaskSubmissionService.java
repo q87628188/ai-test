@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -61,7 +62,14 @@ public class TaskSubmissionService {
             throw new QueueFullException("in-memory queue is full");
         }
 
-        TaskStatusEntity entity = transactionTemplate.execute(status -> persistNew(cmd));
+        TaskStatusEntity entity;
+        try {
+            entity = transactionTemplate.execute(status -> persistNew(cmd));
+        } catch (DataIntegrityViolationException ex) {
+            return statusRepo.findByBusinessKey(cmd.businessKey())
+                .map(winner -> new SubmitResult(winner.getId(), false, true))
+                .orElseThrow(() -> ex);
+        }
         long seq = enqueueSequence.incrementAndGet();
         boolean admitted = queue.offer(new QueuedTask(entity.getId(), entity.getPriority(), seq));
         return new SubmitResult(entity.getId(), admitted, false);

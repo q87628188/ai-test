@@ -57,4 +57,38 @@ class BoundedPriorityTaskQueueTest {
         assertThat(accepted.get()).isEqualTo(q.size());
         assertThat(accepted.get()).isLessThanOrEqualTo(capacity);
     }
+
+    @Test
+    void containsReportsPresence() {
+        BoundedPriorityTaskQueue q = new BoundedPriorityTaskQueue(4);
+        assertThat(q.offer(new QueuedTask("a", 1, 1))).isTrue();
+        assertThat(q.contains("a")).isTrue();
+        assertThat(q.contains("missing")).isFalse();
+    }
+
+    @Test
+    void drainAllSizeConsistentUnderConcurrentOffer() throws Exception {
+        BoundedPriorityTaskQueue q = new BoundedPriorityTaskQueue(1000);
+        ExecutorService pool = Executors.newFixedThreadPool(8);
+        CountDownLatch start = new CountDownLatch(1);
+        AtomicInteger offered = new AtomicInteger();
+        List<Future<?>> futures = new ArrayList<>();
+        for (int i = 0; i < 200; i++) {
+            int idx = i;
+            futures.add(pool.submit(() -> {
+                start.await();
+                if (q.offer(new QueuedTask("t" + idx, 1, idx))) {
+                    offered.incrementAndGet();
+                }
+                return null;
+            }));
+        }
+        start.countDown();
+        List<QueuedTask> firstDrain = q.drainAll();
+        for (Future<?> f : futures) f.get();
+        List<QueuedTask> secondDrain = q.drainAll();
+        pool.shutdownNow();
+        assertThat(q.size()).isEqualTo(0);
+        assertThat(offered.get()).isEqualTo(firstDrain.size() + secondDrain.size());
+    }
 }

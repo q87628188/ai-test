@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -22,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -84,5 +86,25 @@ class TaskSubmissionServiceTest {
         assertThatThrownBy(() -> service.submit(new SubmitCommand("doc:2:v1", "2", "b.pdf", 1, null, null)))
             .isInstanceOf(QueueFullException.class);
         verify(statusRepo, never()).save(any());
+    }
+
+    @Test
+    void saveRaceOnBusinessKeyReturnsIdempotentReplay() {
+        TaskStatusEntity winner = new TaskStatusEntity();
+        winner.setId("winner-id");
+        winner.setBusinessKey("doc:race:v1");
+        when(statusRepo.findByBusinessKey("doc:race:v1"))
+            .thenReturn(Optional.empty())
+            .thenReturn(Optional.of(winner));
+        when(queue.size()).thenReturn(0);
+        when(queue.capacity()).thenReturn(10);
+        doThrow(new DataIntegrityViolationException("duplicate business_key"))
+            .when(transactionTemplate).execute(any());
+
+        SubmitResult r = service.submit(new SubmitCommand("doc:race:v1", "race", "c.pdf", 3, null, null));
+        assertThat(r.taskId()).isEqualTo("winner-id");
+        assertThat(r.idempotentReplay()).isTrue();
+        assertThat(r.admittedToMemory()).isFalse();
+        verify(queue, never()).offer(any());
     }
 }

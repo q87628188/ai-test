@@ -16,19 +16,25 @@ public class EnqueueCompensator {
     private final TaskStatusRepository statusRepo;
     private final BoundedPriorityTaskQueue queue;
     private final AtomicLong enqueueSequence;
+    private final AcceptingGate gate;
 
     public EnqueueCompensator(
         TaskStatusRepository statusRepo,
         BoundedPriorityTaskQueue queue,
-        AtomicLong enqueueSequence
+        AtomicLong enqueueSequence,
+        AcceptingGate gate
     ) {
         this.statusRepo = statusRepo;
         this.queue = queue;
         this.enqueueSequence = enqueueSequence;
+        this.gate = gate;
     }
 
     @Scheduled(fixedDelayString = "${task.engine.compensator-fixed-delay-ms:500}")
     public void compensateMissingQueueEntries() {
+        if (!gate.isAccepting()) {
+            return;
+        }
         List<TaskStatusEntity> queued = statusRepo.findByStatusIn(List.of(TaskStatus.QUEUED));
         for (TaskStatusEntity entity : queued) {
             if (!queue.contains(entity.getId())) {

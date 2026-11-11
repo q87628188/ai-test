@@ -18,27 +18,35 @@ public class RetryScheduler {
     private final TaskStatusRepository statusRepo;
     private final BoundedPriorityTaskQueue queue;
     private final AtomicLong enqueueSequence;
+    private final AcceptingGate gate;
 
     public RetryScheduler(
         TaskStatusRepository statusRepo,
         BoundedPriorityTaskQueue queue,
-        AtomicLong enqueueSequence
+        AtomicLong enqueueSequence,
+        AcceptingGate gate
     ) {
         this.statusRepo = statusRepo;
         this.queue = queue;
         this.enqueueSequence = enqueueSequence;
+        this.gate = gate;
     }
 
     @Scheduled(fixedDelayString = "${task.engine.retry-scheduler-fixed-delay-ms:200}")
     @Transactional
     public void promoteDueRetries() {
+        if (!gate.isAccepting()) {
+            return;
+        }
         List<TaskStatusEntity> due = statusRepo.findByStatusAndNextRunAtLessThanEqual(
             TaskStatus.RETRY_WAIT, Instant.now());
         for (TaskStatusEntity entity : due) {
             entity.setStatus(TaskStatus.QUEUED);
             entity.setNextRunAt(null);
             statusRepo.save(entity);
-            queue.offer(new QueuedTask(entity.getId(), entity.getPriority(), enqueueSequence.incrementAndGet()));
+            if (!queue.contains(entity.getId())) {
+                queue.offer(new QueuedTask(entity.getId(), entity.getPriority(), enqueueSequence.incrementAndGet()));
+            }
         }
     }
 }
