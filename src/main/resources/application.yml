@@ -22,3 +22,18 @@ spring:
       path: /h2-console
 server:
   port: 8080
+
+task:
+  engine:
+    worker-threads: 4
+    queue-factor: 20
+    # capacity = worker-threads * queue-factor (overridden when queue-capacity > 0)
+    queue-capacity: 0
+    max-retries: 3
+    retry-base-ms: 200
+    retry-max-ms: 5000
+    process-sleep-ms: 100
+    default-fail-probability: 0.1
+    shutdown-timeout-seconds: 10
+    compensator-fixed-delay-ms: 500
+    retry-scheduler-fixed-delay-ms: 200
