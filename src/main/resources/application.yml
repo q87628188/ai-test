@@ -2,7 +2,8 @@ spring:
   application:
     name: rag-doc-async-ingest
   datasource:
-    url: jdbc:h2:file:./data/tasks;AUTO_SERVER=TRUE;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    # File mode without AUTO_SERVER: H2 forbids AUTO_SERVER=TRUE with DB_CLOSE_ON_EXIT=FALSE.
+    url: jdbc:h2:file:./data/tasks;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
     driver-class-name: org.h2.Driver
     username: sa
     password:
