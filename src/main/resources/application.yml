@@ -1,12 +1,24 @@
-# application.yml（本任务先禁 JPA 自动 DDL，Task 2 再打开 schema）
-# 同时排除 JpaRepositories / DataSource，否则仅禁 HibernateJpa 仍会因缺少 entityManagerFactory 启动失败
 spring:
   application:
     name: rag-doc-async-ingest
-  autoconfigure:
-    exclude:
-      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
-      - org.springframework.boot.autoconfigure.data.jpa.JpaRepositoriesAutoConfiguration
-      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+  datasource:
+    url: jdbc:h2:file:./data/tasks;AUTO_SERVER=TRUE;MODE=MySQL;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+    properties:
+      hibernate.jdbc.time_zone: UTC
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
 server:
   port: 8080
