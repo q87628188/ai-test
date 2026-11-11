@@ -16,8 +16,8 @@ public class AcceptingGate {
         accepting.set(false);
     }
 
-    /** Test-only reset used by graceful-shutdown IT later. */
-    void resetAcceptingForTest() {
+    /** Test/recovery helper to reopen acceptance after simulated restart. */
+    public void resetAcceptingForTest() {
         accepting.set(true);
     }
 }

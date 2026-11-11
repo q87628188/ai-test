@@ -4,7 +4,6 @@ import com.demo.ragingest.domain.QueuedTask;
 import com.demo.ragingest.infrastructure.config.TaskEngineProperties;
 import com.demo.ragingest.infrastructure.metrics.TaskMetrics;
 import com.demo.ragingest.infrastructure.queue.BoundedPriorityTaskQueue;
-import jakarta.annotation.PreDestroy;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -89,10 +88,5 @@ public class TaskWorkerPool {
             }
         }
         workers.clear();
-    }
-
-    @PreDestroy
-    public void onDestroy() {
-        shutdown(Duration.ofSeconds(props.getShutdownTimeoutSeconds()));
     }
 }
