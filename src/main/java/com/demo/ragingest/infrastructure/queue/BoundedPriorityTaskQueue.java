@@ -57,6 +57,15 @@ public final class BoundedPriorityTaskQueue {
         return drained;
     }
 
+    public boolean contains(String taskId) {
+        for (QueuedTask candidate : queue) {
+            if (candidate.taskId().equals(taskId)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public int size() { return size.get(); }
     public int capacity() { return capacity; }
 }

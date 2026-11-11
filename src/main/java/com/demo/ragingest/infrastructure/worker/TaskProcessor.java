@@ -3,6 +3,7 @@ package com.demo.ragingest.infrastructure.worker;
 import com.demo.ragingest.domain.DocIngestSimulator;
 import com.demo.ragingest.domain.FatalTaskException;
 import com.demo.ragingest.domain.QueuedTask;
+import com.demo.ragingest.domain.RetryPolicy;
 import com.demo.ragingest.domain.RetryableTaskException;
 import com.demo.ragingest.domain.TaskStatus;
 import com.demo.ragingest.infrastructure.config.TaskEngineProperties;
@@ -28,6 +29,7 @@ public class TaskProcessor {
     private final TaskEngineProperties props;
     private final TaskMetrics metrics;
     private final ObjectMapper objectMapper;
+    private final RetryPolicy retryPolicy = new RetryPolicy();
 
     public TaskProcessor(
         TaskStatusRepository statusRepo,
@@ -81,17 +83,41 @@ public class TaskProcessor {
             entity.setStatus(TaskStatus.SUCCESS);
             entity.setFinishedAt(finishedAt);
             entity.setFailReason(null);
+            entity.setNextRunAt(null);
             statusRepo.save(entity);
 
             metrics.incSuccess();
             metrics.recordProcessMs(Duration.between(startedAt, finishedAt).toMillis());
-        } catch (FatalTaskException | RetryableTaskException | InterruptedException ex) {
-            // Task 6 will classify retries; Task 5 success path only.
-            // Keep InterruptedException from leaking as silent success.
-            if (ex instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
+        } catch (FatalTaskException ex) {
+            entity.setStatus(TaskStatus.FAILED);
+            entity.setFailReason(ex.getMessage());
+            entity.setFinishedAt(Instant.now());
+            entity.setNextRunAt(null);
+            statusRepo.save(entity);
+            metrics.incFailed();
+            metrics.recordProcessMs(Duration.between(startedAt, Instant.now()).toMillis());
+        } catch (RetryableTaskException ex) {
+            int next = entity.getRetryCount() + 1;
+            entity.setRetryCount(next);
+            entity.setFailReason(ex.getMessage());
+            metrics.incRetry();
+            if (next > props.getMaxRetries()) {
+                entity.setStatus(TaskStatus.DEAD);
+                entity.setFinishedAt(Instant.now());
+                entity.setNextRunAt(null);
+                metrics.incFailed();
+            } else {
+                entity.setStatus(TaskStatus.RETRY_WAIT);
+                entity.setNextRunAt(Instant.now().plusMillis(
+                    retryPolicy.nextDelayMs(next - 1, props.getRetryBaseMs(), props.getRetryMaxMs())));
             }
-            throw new IllegalStateException("processing failed; retry handling comes in Task 6", ex);
+            statusRepo.save(entity);
+            metrics.recordProcessMs(Duration.between(startedAt, Instant.now()).toMillis());
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            entity.setStatus(TaskStatus.QUEUED);
+            entity.setFailReason("interrupted");
+            statusRepo.save(entity);
         }
     }
 }
