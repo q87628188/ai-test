@@ -44,11 +44,15 @@ public class GracefulShutdownManager {
         List<QueuedTask> drained = queue.drainAll();
         log.info("Drained {} in-memory tasks during shutdown", drained.size());
 
-        List<TaskStatusEntity> running = statusRepo.findByStatusIn(List.of(TaskStatus.RUNNING));
-        for (TaskStatusEntity entity : running) {
-            entity.setStatus(TaskStatus.QUEUED);
-            entity.setFailReason("requeued on shutdown");
-            statusRepo.save(entity);
+        try {
+            List<TaskStatusEntity> running = statusRepo.findByStatusIn(List.of(TaskStatus.RUNNING));
+            for (TaskStatusEntity entity : running) {
+                entity.setStatus(TaskStatus.QUEUED);
+                entity.setFailReason("requeued on shutdown");
+                statusRepo.save(entity);
+            }
+        } catch (RuntimeException ex) {
+            log.warn("Skip RUNNING requeue during shutdown (datasource may already be closed): {}", ex.getMessage());
         }
 
         workerPool.shutdown(Duration.ofSeconds(props.getShutdownTimeoutSeconds()));
