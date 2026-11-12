@@ -9,10 +9,21 @@ public class SubmitTaskRequest {
     private String businessKey;
 
     @NotBlank
-    private String docId;
+    private String userId;
 
     @NotBlank
-    private String fileName;
+    private String eventTime;
+
+    @NotBlank
+    private String deviceId;
+
+    @NotBlank
+    private String clientIp;
+
+    @NotBlank
+    private String targetSystem;
+
+    private String action;
 
     @NotNull
     private Integer priority;
@@ -29,20 +40,52 @@ public class SubmitTaskRequest {
         this.businessKey = businessKey;
     }
 
-    public String getDocId() {
-        return docId;
+    public String getUserId() {
+        return userId;
     }
 
-    public void setDocId(String docId) {
-        this.docId = docId;
+    public void setUserId(String userId) {
+        this.userId = userId;
     }
 
-    public String getFileName() {
-        return fileName;
+    public String getEventTime() {
+        return eventTime;
     }
 
-    public void setFileName(String fileName) {
-        this.fileName = fileName;
+    public void setEventTime(String eventTime) {
+        this.eventTime = eventTime;
+    }
+
+    public String getDeviceId() {
+        return deviceId;
+    }
+
+    public void setDeviceId(String deviceId) {
+        this.deviceId = deviceId;
+    }
+
+    public String getClientIp() {
+        return clientIp;
+    }
+
+    public void setClientIp(String clientIp) {
+        this.clientIp = clientIp;
+    }
+
+    public String getTargetSystem() {
+        return targetSystem;
+    }
+
+    public void setTargetSystem(String targetSystem) {
+        this.targetSystem = targetSystem;
+    }
+
+    public String getAction() {
+        return action;
+    }
+
+    public void setAction(String action) {
+        this.action = action;
     }
 
     public Integer getPriority() {

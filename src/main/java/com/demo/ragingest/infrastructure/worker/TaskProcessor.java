@@ -1,10 +1,10 @@
 package com.demo.ragingest.infrastructure.worker;
 
-import com.demo.ragingest.domain.DocIngestSimulator;
 import com.demo.ragingest.domain.FatalTaskException;
 import com.demo.ragingest.domain.QueuedTask;
 import com.demo.ragingest.domain.RetryPolicy;
 import com.demo.ragingest.domain.RetryableTaskException;
+import com.demo.ragingest.domain.RiskEventSimulator;
 import com.demo.ragingest.domain.TaskStatus;
 import com.demo.ragingest.infrastructure.config.TaskEngineProperties;
 import com.demo.ragingest.infrastructure.metrics.TaskMetrics;
@@ -13,6 +13,7 @@ import com.demo.ragingest.infrastructure.persistence.TaskResultRepository;
 import com.demo.ragingest.infrastructure.persistence.TaskStatusEntity;
 import com.demo.ragingest.infrastructure.persistence.TaskStatusRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.time.Duration;
 import java.time.Instant;
@@ -25,7 +26,7 @@ public class TaskProcessor {
 
     private final TaskStatusRepository statusRepo;
     private final TaskResultRepository resultRepo;
-    private final DocIngestSimulator simulator;
+    private final RiskEventSimulator simulator;
     private final TaskEngineProperties props;
     private final TaskMetrics metrics;
     private final ObjectMapper objectMapper;
@@ -34,7 +35,7 @@ public class TaskProcessor {
     public TaskProcessor(
         TaskStatusRepository statusRepo,
         TaskResultRepository resultRepo,
-        DocIngestSimulator simulator,
+        RiskEventSimulator simulator,
         TaskEngineProperties props,
         TaskMetrics metrics,
         ObjectMapper objectMapper
@@ -67,11 +68,14 @@ public class TaskProcessor {
         statusRepo.save(entity);
 
         try {
-            DocIngestSimulator.Result result = simulator.simulate(entity, props);
+            RiskEventSimulator.Result result = simulator.simulate(entity, props);
             ObjectNode json = objectMapper.createObjectNode();
-            json.put("chunks", result.chunks());
-            json.put("vectors", result.vectors());
-            json.put("elapsedMs", result.elapsedMs());
+            json.put("normalized", result.normalized());
+            ArrayNode tags = json.putArray("riskTags");
+            for (String tag : result.riskTags()) {
+                tags.add(tag);
+            }
+            json.put("durationMs", result.durationMs());
 
             TaskResultEntity resultEntity = new TaskResultEntity();
             resultEntity.setTaskId(entity.getId());

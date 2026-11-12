@@ -2,25 +2,27 @@
 
 本文件保留与本考核实现相关的关键对话要点，满足「使用 AI 作答并留存对话」的提交要求。
 
-## 1. 需求与场景匹配（OpenSpec propose）
+## 1. 初版：文档入库场景
 
-- 输入：Java/AI 应用考核题（并发、有界队列、反压、入队不丢失、重试幂等、优雅停机）+ 简历 PDF。
-- AI 结论：从简历中选取「企业智能问答系统 · 文档解析/切片/向量化入库」作为异步任务场景，优于电商 Agent（偏交互）与数字藏品（偏中间件）。
-- 产出：`openspec/changes/rag-doc-async-ingest/` 下 proposal / design / specs / tasks。
+- 输入：Java/AI 应用考核题 + 简历匹配。
+- 初选场景：企业智能问答「文档解析/切片/向量化入库」。
+- 产出并归档：`openspec/changes/archive/2026-11-11-rag-doc-async-ingest/`。
 
-## 2. 实现计划（writing-plans）
+## 2. 场景切换：风险引擎数据采集
 
-- 用户要求以 OpenSpec 产物为基准，把 `tasks.md` 拆成可落地开发任务。
-- AI 产出：`docs/superpowers/plans/2026-11-11-rag-doc-async-ingest.md`（9 个 Task，TDD 步骤与文件路径）。
+- 用户指出应贴合风险引擎：Logstash 采集 → 消息队列 → Spark 清洗聚合。
+- 约束：考核禁止外部 MQ；接口每次只上传一条 event（谁/时间/设备/IP/系统）；显式 `businessKey`；不含 `windowStart`/`windowEnd`。
+- 要求：宕机丢内存队列后，重启能区分已消费/未消费，未消费重新加载进队列。
+- 产出：`openspec/changes/risk-event-async-ingest/`（proposal / design / specs / tasks）。
 
-## 3. 执行方式
+## 3. 关键设计决策
 
-- 用户选择 Subagent-Driven；Task 1–2 经子代理推进后触及 usage limit。
-- 后续按用户选择改为**本会话内联执行** Plan Task 3–9，保留分步 git commit。
+- 生产组件映射到进程内引擎；不接真实 Logstash/Kafka/Spark。
+- DB 为真相，内存有界优先队列为调度；消费位点用任务状态表达。
+- at-least-once + `businessKey` 幂等；`RUNNING` 恢复为可调度。
+- 任务类型 `RISK_EVENT_INGEST`；结果摘要 `normalized` / `riskTags` / `durationMs`。
 
-## 4. 关键设计决策（对话中落地）
+## 4. 执行
 
-- DB 为真相，内存有界优先队列为调度。
-- 提交：`TransactionTemplate` 先提交再 `offer`，避免 Worker 读到未提交行。
-- 反压：内存满时新键 429；已落库任务由补偿器入队。
-- 重试：`RETRY_WAIT` 不占槽；到期再入队；超额 `DEAD`。
+- 用户选择在已有引擎上换皮实现（非绿场重做文档入库）。
+- 本会话内联落地契约、模拟器、恢复测试与文档更新。

@@ -79,7 +79,7 @@ public class TaskSubmissionService {
         TaskStatusEntity entity = new TaskStatusEntity();
         entity.setId(UUID.randomUUID().toString());
         entity.setBusinessKey(cmd.businessKey());
-        entity.setTaskType(TaskType.DOC_INGEST);
+        entity.setTaskType(TaskType.RISK_EVENT_INGEST);
         entity.setPriority(cmd.priority());
         entity.setStatus(TaskStatus.QUEUED);
         entity.setRetryCount(0);
@@ -90,10 +90,16 @@ public class TaskSubmissionService {
 
     private String toPayloadJson(SubmitCommand cmd) {
         Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("docId", cmd.docId());
-        payload.put("fileName", cmd.fileName());
-        payload.put("taskType", TaskType.DOC_INGEST.name());
-        payload.put("executionProfile", "IO_HYBRID");
+        payload.put("userId", cmd.userId());
+        payload.put("eventTime", cmd.eventTime());
+        payload.put("deviceId", cmd.deviceId());
+        payload.put("clientIp", cmd.clientIp());
+        payload.put("targetSystem", cmd.targetSystem());
+        if (cmd.action() != null) {
+            payload.put("action", cmd.action());
+        }
+        payload.put("taskType", TaskType.RISK_EVENT_INGEST.name());
+        payload.put("executionProfile", "CPU_HYBRID");
         if (cmd.failProbability() != null) {
             payload.put("failProbability", cmd.failProbability());
         }

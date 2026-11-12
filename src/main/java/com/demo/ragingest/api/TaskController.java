@@ -33,8 +33,12 @@ public class TaskController {
     public SubmitTaskResponse submit(@Valid @RequestBody SubmitTaskRequest request) {
         SubmitResult result = submissionService.submit(new SubmitCommand(
             request.getBusinessKey(),
-            request.getDocId(),
-            request.getFileName(),
+            request.getUserId(),
+            request.getEventTime(),
+            request.getDeviceId(),
+            request.getClientIp(),
+            request.getTargetSystem(),
+            request.getAction(),
             request.getPriority(),
             request.getFailProbability(),
             request.getFatal()

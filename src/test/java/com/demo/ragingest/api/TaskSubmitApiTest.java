@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.demo.ragingest.infrastructure.persistence.TaskStatusRepository;
+import com.demo.ragingest.support.TestEvents;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -25,10 +26,8 @@ class TaskSubmitApiTest {
 
     @Test
     void submitReturnsTaskIdAndRowExists() throws Exception {
-        String businessKey = "doc:api:" + java.util.UUID.randomUUID();
-        String body = """
-            {"businessKey":"%s","docId":"api","fileName":"a.pdf","priority":3,"failProbability":0.0}
-            """.formatted(businessKey);
+        String businessKey = "risk:evt:" + java.util.UUID.randomUUID();
+        String body = TestEvents.jsonBody(businessKey, 3, 0.0);
         String json = mvc.perform(post("/api/tasks").contentType(APPLICATION_JSON).content(body))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.taskId").isNotEmpty())
@@ -36,5 +35,29 @@ class TaskSubmitApiTest {
         JsonNode node = objectMapper.readTree(json);
         String id = node.get("taskId").asText();
         assertThat(repo.findById(id)).isPresent();
+    }
+
+    @Test
+    void duplicateBusinessKeyIsIdempotent() throws Exception {
+        String businessKey = "risk:evt:" + java.util.UUID.randomUUID();
+        String body = TestEvents.jsonBody(businessKey, 5, 0.0);
+        String first = mvc.perform(post("/api/tasks").contentType(APPLICATION_JSON).content(body))
+            .andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString();
+        String second = mvc.perform(post("/api/tasks").contentType(APPLICATION_JSON).content(body))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.idempotentReplay").value(true))
+            .andReturn().getResponse().getContentAsString();
+        assertThat(objectMapper.readTree(first).get("taskId").asText())
+            .isEqualTo(objectMapper.readTree(second).get("taskId").asText());
+    }
+
+    @Test
+    void missingRequiredFieldRejected() throws Exception {
+        String body = """
+            {"businessKey":"risk:evt:bad","priority":1}
+            """;
+        mvc.perform(post("/api/tasks").contentType(APPLICATION_JSON).content(body))
+            .andExpect(status().isBadRequest());
     }
 }

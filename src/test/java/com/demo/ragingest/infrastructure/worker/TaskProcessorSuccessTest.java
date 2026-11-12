@@ -8,6 +8,8 @@ import com.demo.ragingest.domain.TaskType;
 import com.demo.ragingest.infrastructure.persistence.TaskResultRepository;
 import com.demo.ragingest.infrastructure.persistence.TaskStatusEntity;
 import com.demo.ragingest.infrastructure.persistence.TaskStatusRepository;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -27,18 +29,23 @@ class TaskProcessorSuccessTest {
     @Autowired TaskProcessor processor;
     @Autowired TaskStatusRepository statusRepo;
     @Autowired TaskResultRepository resultRepo;
+    @Autowired ObjectMapper objectMapper;
 
     @Test
-    void processMarksSuccessAndWritesResult() {
+    void processMarksSuccessAndWritesResult() throws Exception {
         String id = UUID.randomUUID().toString();
         TaskStatusEntity entity = new TaskStatusEntity();
         entity.setId(id);
-        entity.setBusinessKey("doc:proc:" + id);
-        entity.setTaskType(TaskType.DOC_INGEST);
+        entity.setBusinessKey("risk:evt:proc:" + id);
+        entity.setTaskType(TaskType.RISK_EVENT_INGEST);
         entity.setPriority(5);
         entity.setStatus(TaskStatus.QUEUED);
         entity.setRetryCount(0);
-        entity.setPayloadJson("{\"docId\":\"x\",\"fileName\":\"x.pdf\",\"failProbability\":0.0,\"fatal\":false}");
+        entity.setPayloadJson(
+            "{\"userId\":\"u1\",\"eventTime\":\"2026-11-12T12:00:00Z\",\"deviceId\":\"d1\","
+                + "\"clientIp\":\"203.0.113.10\",\"targetSystem\":\"payment-gateway\",\"action\":\"login\","
+                + "\"failProbability\":0.0,\"fatal\":false}"
+        );
         entity.setEnqueuedAt(Instant.now());
         statusRepo.saveAndFlush(entity);
 
@@ -47,5 +54,9 @@ class TaskProcessorSuccessTest {
         TaskStatusEntity updated = statusRepo.findById(id).orElseThrow();
         assertThat(updated.getStatus()).isEqualTo(TaskStatus.SUCCESS);
         assertThat(resultRepo.findById(id)).isPresent();
+        JsonNode result = objectMapper.readTree(resultRepo.findById(id).orElseThrow().getResultJson());
+        assertThat(result.path("normalized").asBoolean()).isTrue();
+        assertThat(result.path("riskTags").isArray()).isTrue();
+        assertThat(result.path("durationMs").isNumber()).isTrue();
     }
 }

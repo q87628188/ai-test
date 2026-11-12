@@ -50,7 +50,7 @@ public class TaskWorkerPool {
             workers.add(worker);
             worker.start();
         }
-        log.info("Started {} DOC_INGEST workers", n);
+        log.info("Started {} RISK_EVENT_INGEST workers", n);
     }
 
     private void loop() {

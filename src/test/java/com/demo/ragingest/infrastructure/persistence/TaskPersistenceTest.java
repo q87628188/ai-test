@@ -28,19 +28,19 @@ class TaskPersistenceTest {
 
     @Test
     void savesStatusAndEnforcesBusinessKeyUnique() {
-        TaskStatusEntity a = newEntity("doc:a:1");
+        TaskStatusEntity a = newEntity("risk:evt:a1");
         statusRepo.saveAndFlush(a);
-        TaskStatusEntity b = newEntity("doc:a:1");
+        TaskStatusEntity b = newEntity("risk:evt:a1");
         assertThatThrownBy(() -> statusRepo.saveAndFlush(b))
             .isInstanceOf(DataIntegrityViolationException.class);
     }
 
     @Test
     void savesResultLinkedToTask() {
-        TaskStatusEntity t = statusRepo.saveAndFlush(newEntity("doc:b:1"));
+        TaskStatusEntity t = statusRepo.saveAndFlush(newEntity("risk:evt:b1"));
         TaskResultEntity r = new TaskResultEntity();
         r.setTaskId(t.getId());
-        r.setResultJson("{\"chunks\":3}");
+        r.setResultJson("{\"normalized\":true,\"riskTags\":[\"public_ip\"],\"durationMs\":10}");
         r.setCreatedAt(Instant.now());
         resultRepo.saveAndFlush(r);
         assertThat(resultRepo.findById(t.getId())).isPresent();
@@ -50,11 +50,11 @@ class TaskPersistenceTest {
         TaskStatusEntity e = new TaskStatusEntity();
         e.setId(UUID.randomUUID().toString());
         e.setBusinessKey(key);
-        e.setTaskType(TaskType.DOC_INGEST);
+        e.setTaskType(TaskType.RISK_EVENT_INGEST);
         e.setPriority(5);
         e.setStatus(TaskStatus.QUEUED);
         e.setRetryCount(0);
-        e.setPayloadJson("{\"docId\":\"x\"}");
+        e.setPayloadJson("{\"userId\":\"u1\",\"clientIp\":\"1.1.1.1\",\"targetSystem\":\"app\"}");
         e.setEnqueuedAt(Instant.now());
         return e;
     }

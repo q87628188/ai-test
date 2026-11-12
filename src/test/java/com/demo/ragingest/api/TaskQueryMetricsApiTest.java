@@ -4,8 +4,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.demo.ragingest.application.SubmitCommand;
 import com.demo.ragingest.application.TaskSubmissionService;
+import com.demo.ragingest.support.TestEvents;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,8 +22,7 @@ class TaskQueryMetricsApiTest {
 
     @Test
     void queryStatsAndMetricsFieldsPresent() throws Exception {
-        submission.submit(new SubmitCommand(
-            "doc:q:" + UUID.randomUUID(), "q", "q.pdf", 2, 0.0, false));
+        submission.submit(TestEvents.cmd("risk:evt:q:" + UUID.randomUUID(), 2, 0.0, false));
         mvc.perform(get("/api/tasks/stats"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.backlog").exists())

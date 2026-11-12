@@ -15,6 +15,7 @@ import com.demo.ragingest.infrastructure.metrics.TaskMetrics;
 import com.demo.ragingest.infrastructure.persistence.TaskStatusEntity;
 import com.demo.ragingest.infrastructure.persistence.TaskStatusRepository;
 import com.demo.ragingest.infrastructure.queue.BoundedPriorityTaskQueue;
+import com.demo.ragingest.support.TestEvents;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
@@ -52,13 +53,13 @@ class TaskSubmissionServiceTest {
 
     @Test
     void persistsBeforeReturningAndOffersToQueue() {
-        when(statusRepo.findByBusinessKey("doc:1:v1")).thenReturn(Optional.empty());
+        when(statusRepo.findByBusinessKey("risk:evt:1")).thenReturn(Optional.empty());
         when(statusRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(queue.size()).thenReturn(0);
         when(queue.capacity()).thenReturn(10);
         when(queue.offer(any())).thenReturn(true);
 
-        SubmitResult r = service.submit(new SubmitCommand("doc:1:v1", "1", "a.pdf", 5, 0.0, false));
+        SubmitResult r = service.submit(TestEvents.cmd("risk:evt:1", 5, 0.0, false));
         assertThat(r.taskId()).isNotBlank();
         assertThat(r.admittedToMemory()).isTrue();
         verify(statusRepo).save(argThat(e -> e.getStatus() == TaskStatus.QUEUED));
@@ -69,10 +70,10 @@ class TaskSubmissionServiceTest {
     void duplicateBusinessKeyReturnsSameIdWithoutSecondSave() {
         TaskStatusEntity existing = new TaskStatusEntity();
         existing.setId("fixed-id");
-        existing.setBusinessKey("doc:1:v1");
-        when(statusRepo.findByBusinessKey("doc:1:v1")).thenReturn(Optional.of(existing));
+        existing.setBusinessKey("risk:evt:1");
+        when(statusRepo.findByBusinessKey("risk:evt:1")).thenReturn(Optional.of(existing));
 
-        SubmitResult r = service.submit(new SubmitCommand("doc:1:v1", "1", "a.pdf", 5, null, null));
+        SubmitResult r = service.submit(TestEvents.cmd("risk:evt:1", 5, null, null));
         assertThat(r.taskId()).isEqualTo("fixed-id");
         assertThat(r.idempotentReplay()).isTrue();
         verify(statusRepo, never()).save(any());
@@ -80,10 +81,10 @@ class TaskSubmissionServiceTest {
 
     @Test
     void newKeyWhenQueueFullThrowsQueueFull() {
-        when(statusRepo.findByBusinessKey("doc:2:v1")).thenReturn(Optional.empty());
+        when(statusRepo.findByBusinessKey("risk:evt:2")).thenReturn(Optional.empty());
         when(queue.size()).thenReturn(10);
         when(queue.capacity()).thenReturn(10);
-        assertThatThrownBy(() -> service.submit(new SubmitCommand("doc:2:v1", "2", "b.pdf", 1, null, null)))
+        assertThatThrownBy(() -> service.submit(TestEvents.cmd("risk:evt:2", 1, null, null)))
             .isInstanceOf(QueueFullException.class);
         verify(statusRepo, never()).save(any());
     }
@@ -92,8 +93,8 @@ class TaskSubmissionServiceTest {
     void saveRaceOnBusinessKeyReturnsIdempotentReplay() {
         TaskStatusEntity winner = new TaskStatusEntity();
         winner.setId("winner-id");
-        winner.setBusinessKey("doc:race:v1");
-        when(statusRepo.findByBusinessKey("doc:race:v1"))
+        winner.setBusinessKey("risk:evt:race");
+        when(statusRepo.findByBusinessKey("risk:evt:race"))
             .thenReturn(Optional.empty())
             .thenReturn(Optional.of(winner));
         when(queue.size()).thenReturn(0);
@@ -101,7 +102,7 @@ class TaskSubmissionServiceTest {
         doThrow(new DataIntegrityViolationException("duplicate business_key"))
             .when(transactionTemplate).execute(any());
 
-        SubmitResult r = service.submit(new SubmitCommand("doc:race:v1", "race", "c.pdf", 3, null, null));
+        SubmitResult r = service.submit(TestEvents.cmd("risk:evt:race", 3, null, null));
         assertThat(r.taskId()).isEqualTo("winner-id");
         assertThat(r.idempotentReplay()).isTrue();
         assertThat(r.admittedToMemory()).isFalse();

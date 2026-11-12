@@ -6,6 +6,7 @@ import com.demo.ragingest.domain.TaskStatus;
 import com.demo.ragingest.infrastructure.persistence.TaskStatusEntity;
 import com.demo.ragingest.infrastructure.persistence.TaskStatusRepository;
 import com.demo.ragingest.infrastructure.queue.BoundedPriorityTaskQueue;
+import com.demo.ragingest.support.TestEvents;
 import java.time.Duration;
 import java.util.UUID;
 import org.awaitility.Awaitility;
@@ -31,8 +32,8 @@ class TaskRetryIntegrationTest {
 
     @Test
     void fatalGoesToFailedWithoutRetry() {
-        String key = "doc:fatal:" + UUID.randomUUID();
-        SubmitResult r = submission.submit(new SubmitCommand(key, "f", "f.pdf", 1, 0.0, true));
+        String key = "risk:evt:fatal:" + UUID.randomUUID();
+        SubmitResult r = submission.submit(TestEvents.cmd(key, 1, 0.0, true));
         Awaitility.await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> {
             TaskStatusEntity e = repo.findById(r.taskId()).orElseThrow();
             assertThat(e.getStatus()).isEqualTo(TaskStatus.FAILED);
@@ -43,8 +44,8 @@ class TaskRetryIntegrationTest {
 
     @Test
     void retryableExhaustionGoesDead() {
-        String key = "doc:retry:" + UUID.randomUUID();
-        SubmitResult r = submission.submit(new SubmitCommand(key, "r", "r.pdf", 1, 1.0, false));
+        String key = "risk:evt:retry:" + UUID.randomUUID();
+        SubmitResult r = submission.submit(TestEvents.cmd(key, 1, 1.0, false));
         Awaitility.await().atMost(Duration.ofSeconds(15)).untilAsserted(() -> {
             TaskStatusEntity e = repo.findById(r.taskId()).orElseThrow();
             assertThat(e.getStatus()).isEqualTo(TaskStatus.DEAD);
@@ -55,8 +56,8 @@ class TaskRetryIntegrationTest {
 
     @Test
     void retryWaitDoesNotOccupyQueueSlot() {
-        String key = "doc:wait:" + UUID.randomUUID();
-        SubmitResult r = submission.submit(new SubmitCommand(key, "w", "w.pdf", 1, 1.0, false));
+        String key = "risk:evt:wait:" + UUID.randomUUID();
+        SubmitResult r = submission.submit(TestEvents.cmd(key, 1, 1.0, false));
         Awaitility.await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> {
             TaskStatusEntity e = repo.findById(r.taskId()).orElseThrow();
             assertThat(e.getStatus()).isIn(TaskStatus.RETRY_WAIT, TaskStatus.DEAD, TaskStatus.QUEUED, TaskStatus.RUNNING);
