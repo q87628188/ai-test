@@ -3,6 +3,9 @@ package com.demo.ragingest.application;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.springframework.stereotype.Component;
 
+/**
+ * 受理门禁：优雅停机时关闭，提交路径据此返回 503 NOT_ACCEPTING。
+ */
 @Component
 public class AcceptingGate {
 
@@ -16,7 +19,7 @@ public class AcceptingGate {
         accepting.set(false);
     }
 
-    /** Test/recovery helper to reopen acceptance after simulated restart. */
+    /** 测试用：模拟重启后重新打开受理。 */
     public void resetAcceptingForTest() {
         accepting.set(true);
     }

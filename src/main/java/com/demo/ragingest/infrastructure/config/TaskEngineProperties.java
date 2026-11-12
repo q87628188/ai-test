@@ -2,21 +2,37 @@ package com.demo.ragingest.infrastructure.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+/**
+ * 任务引擎配置（{@code task.engine.*}）。
+ * <p>队列容量默认 {@code workerThreads × queueFactor}，可用 {@code queueCapacity} 覆盖。
+ */
 @ConfigurationProperties(prefix = "task.engine")
 public class TaskEngineProperties {
 
+    /** 固定 Worker 线程数。 */
     private int workerThreads = 4;
+    /** 默认容量因子：capacity = threads × factor。 */
     private int queueFactor = 20;
+    /** &gt;0 时覆盖默认容量公式。 */
     private int queueCapacity = 0;
+    /** 可重试失败最大次数，超限 → DEAD。 */
     private int maxRetries = 3;
+    /** 退避基数（毫秒）。 */
     private long retryBaseMs = 200;
+    /** 退避上限（毫秒）。 */
     private long retryMaxMs = 5000;
+    /** 模拟处理 sleep。 */
     private long processSleepMs = 100;
+    /** 未指定 failProbability 时的默认失败率。 */
     private double defaultFailProbability = 0.1;
+    /** 优雅停机等待 Worker 的秒数。 */
     private int shutdownTimeoutSeconds = 10;
+    /** 入队补偿扫描间隔。 */
     private long compensatorFixedDelayMs = 500;
+    /** 重试提升扫描间隔。 */
     private long retrySchedulerFixedDelayMs = 200;
 
+    /** 解析实际有界队列容量。 */
     public int resolvedQueueCapacity() {
         return queueCapacity > 0 ? queueCapacity : workerThreads * queueFactor;
     }

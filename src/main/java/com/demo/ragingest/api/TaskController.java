@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/** 任务 HTTP API：提交 / 查状态 / 查结果 / 统计。 */
 @RestController
 @RequestMapping("/api/tasks")
 public class TaskController {
@@ -29,6 +30,7 @@ public class TaskController {
         this.queryService = queryService;
     }
 
+    /** 提交单条风险事件；同 businessKey 幂等返回原 taskId。 */
     @PostMapping
     public SubmitTaskResponse submit(@Valid @RequestBody SubmitTaskRequest request) {
         SubmitResult result = submissionService.submit(new SubmitCommand(

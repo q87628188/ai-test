@@ -14,6 +14,10 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
+/**
+ * 固定数量 Worker 线程池：阻塞 take 自研队列后交给 {@link TaskProcessor}。
+ * <p>刻意不用 ThreadPoolExecutor 直接塞任务，以便控制优先级与有界容量。
+ */
 @Component
 public class TaskWorkerPool {
 
@@ -38,6 +42,7 @@ public class TaskWorkerPool {
         this.metrics = metrics;
     }
 
+    /** 应用就绪后启动 N 个守护线程（N = task.engine.worker-threads）。 */
     @EventListener(ApplicationReadyEvent.class)
     public synchronized void start() {
         if (!running.compareAndSet(false, true)) {
@@ -53,6 +58,7 @@ public class TaskWorkerPool {
         log.info("Started {} RISK_EVENT_INGEST workers", n);
     }
 
+    /** 单个 Worker 主循环：take → process → 可中断退出。 */
     private void loop() {
         while (running.get()) {
             try {
@@ -72,6 +78,7 @@ public class TaskWorkerPool {
         }
     }
 
+    /** 停机：置 running=false、interrupt、限时 join。 */
     public void shutdown(Duration timeout) {
         running.set(false);
         for (Thread worker : workers) {

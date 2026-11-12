@@ -14,6 +14,7 @@ import com.demo.ragingest.infrastructure.queue.BoundedPriorityTaskQueue;
 import java.util.NoSuchElementException;
 import org.springframework.stereotype.Service;
 
+/** 任务查询：状态、结果、队列/状态统计。 */
 @Service
 public class TaskQueryService {
 

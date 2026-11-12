@@ -12,6 +12,10 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * 到期重试调度：扫描 RETRY_WAIT 且 next_run_at &lt;= now，改回 QUEUED 并 offer。
+ * <p>等待期间不占有界队列槽位。
+ */
 @Component
 public class RetryScheduler {
 

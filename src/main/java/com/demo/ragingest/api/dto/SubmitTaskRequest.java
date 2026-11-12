@@ -3,8 +3,10 @@ package com.demo.ragingest.api.dto;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
+/** 提交风险事件请求体；业务字段最终写入 task_status.payload_json。 */
 public class SubmitTaskRequest {
 
+    /** 幂等键。 */
     @NotBlank
     private String businessKey;
 
@@ -23,13 +25,16 @@ public class SubmitTaskRequest {
     @NotBlank
     private String targetSystem;
 
+    /** 可选动作标签。 */
     private String action;
 
     @NotNull
     private Integer priority;
 
+    /** 可选：模拟可重试失败概率。 */
     private Double failProbability;
 
+    /** 可选：模拟 fatal 失败。 */
     private Boolean fatal;
 
     public String getBusinessKey() {

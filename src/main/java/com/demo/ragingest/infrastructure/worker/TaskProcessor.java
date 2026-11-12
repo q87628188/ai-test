@@ -21,6 +21,9 @@ import java.util.Optional;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * 单任务执行器：从 DB 读 payload → 模拟处理 → 写结果或转入重试/失败/死信。
+ */
 @Component
 public class TaskProcessor {
 
@@ -48,6 +51,9 @@ public class TaskProcessor {
         this.objectMapper = objectMapper;
     }
 
+    /**
+     * 处理一条队列任务（至少一次语义：崩溃后 RUNNING 会被恢复为 QUEUED 再跑）。
+     */
     @Transactional
     public void process(QueuedTask qt) {
         Optional<TaskStatusEntity> optional = statusRepo.findById(qt.taskId());
@@ -55,6 +61,7 @@ public class TaskProcessor {
             return;
         }
         TaskStatusEntity entity = optional.get();
+        // 仅 QUEUED/RETRY_WAIT 可执行，避免重复消费终态
         if (entity.getStatus() != TaskStatus.QUEUED && entity.getStatus() != TaskStatus.RETRY_WAIT) {
             return;
         }
@@ -68,6 +75,7 @@ public class TaskProcessor {
         statusRepo.save(entity);
 
         try {
+            // 从 payload_json 读消息并模拟清洗/特征
             RiskEventSimulator.Result result = simulator.simulate(entity, props);
             ObjectNode json = objectMapper.createObjectNode();
             json.put("normalized", result.normalized());
@@ -93,6 +101,7 @@ public class TaskProcessor {
             metrics.incSuccess();
             metrics.recordProcessMs(Duration.between(startedAt, finishedAt).toMillis());
         } catch (FatalTaskException ex) {
+            // 不可重试 → FAILED
             entity.setStatus(TaskStatus.FAILED);
             entity.setFailReason(ex.getMessage());
             entity.setFinishedAt(Instant.now());
@@ -101,6 +110,7 @@ public class TaskProcessor {
             metrics.incFailed();
             metrics.recordProcessMs(Duration.between(startedAt, Instant.now()).toMillis());
         } catch (RetryableTaskException ex) {
+            // 可重试：未超限 → RETRY_WAIT（不占队列槽）；超限 → DEAD
             int next = entity.getRetryCount() + 1;
             entity.setRetryCount(next);
             entity.setFailReason(ex.getMessage());

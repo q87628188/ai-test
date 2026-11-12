@@ -10,15 +10,18 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+/** 将领域异常映射为 HTTP 状态码（429 反压 / 503 停机等）。 */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    /** 内存队列满 → 429 QUEUE_FULL。 */
     @ExceptionHandler(QueueFullException.class)
     public ResponseEntity<ErrorResponse> handleQueueFull(QueueFullException ex) {
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
             .body(new ErrorResponse("QUEUE_FULL", ex.getMessage()));
     }
 
+    /** 优雅停机中 → 503 NOT_ACCEPTING。 */
     @ExceptionHandler(NotAcceptingException.class)
     public ResponseEntity<ErrorResponse> handleNotAccepting(NotAcceptingException ex) {
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)

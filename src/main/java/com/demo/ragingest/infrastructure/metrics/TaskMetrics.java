@@ -4,6 +4,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.LongAdder;
 import org.springframework.stereotype.Component;
 
+/** 进程内任务指标：成功/失败/重试计数、排队与处理耗时、活跃 Worker 数。 */
 @Component
 public class TaskMetrics {
 

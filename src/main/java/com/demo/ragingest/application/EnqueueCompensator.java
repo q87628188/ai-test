@@ -10,6 +10,9 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+/**
+ * 入队补偿：DB 已为 QUEUED 但内存队列缺失时补 offer（覆盖落库后 offer 失败等窗口）。
+ */
 @Component
 public class EnqueueCompensator {
 
