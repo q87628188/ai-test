@@ -7,13 +7,13 @@
 ## Requirements
 
 ### Requirement: Worker pull and simulated processing
-系统 MUST 由 Worker 线程从优先队列拉取任务，并用 sleep 或本地计算模拟文档解析/向量化耗时，不得依赖真实外部模型服务即可完成演示。
+系统 MUST 由 Worker 线程从优先队列拉取任务，并用 sleep 或本地计算模拟单条风险事件的清洗与特征化耗时，不得依赖真实 Logstash、消息中间件或 Spark 即可完成演示。
 
 #### Scenario: Simulated ingest completes successfully
-- **GIVEN** 队列中存在待处理文档入库任务
+- **GIVEN** 队列中存在待处理风险事件任务
 - **WHEN** Worker 拉取并执行模拟处理且未触发失败注入
 - **THEN** 任务最终变为成功状态
-- **AND** 结果表中可查询到入库结果摘要
+- **AND** 结果表中可查询到该事件的处理结果摘要（如规范化结果、特征/标签摘要、耗时）
 
 ### Requirement: Classified failure handling
 系统 MUST 区分可重试业务失败与系统异常（可恢复/不可恢复），并对不可恢复失败直接进入失败终态而不进入无限重试。
